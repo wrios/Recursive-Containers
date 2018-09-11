@@ -8,7 +8,7 @@
 #include "matriz_lista_string.h"
 
 void test_ejemplo(FILE *pfile){
-
+	
 }
 
 int main (void){
