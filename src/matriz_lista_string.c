@@ -3,21 +3,17 @@
 //extern void matrixDelete(void* m);
 //extern void matrixPrint(void* m, FILE *pFile);
 
-matrix_t* matrixNew(uint32_t m, uint32_t n){
-	matrix_t* nueva = (matrix_t*) malloc (48);
-	nueva->dataType = 4;
-	nueva->remove = &matrixDelete;
-	void (*ptr_fun)(void* , void*);
-	ptr_fun = &matrixPrint;
-	nueva->print = ptr_fun;
-	nueva->m = m;//(columna)
-	nueva->n = n;//(fila)
-	void **data = (void**) malloc(sizeof(void*)*m*n);
-    return nueva;
-}
-
+/*
 void matrixPrint(matrix_t* m, FILE *pFile) {
-	void *iterador = *(m->data);
+	void mostrarLista(struct lista *unaLista){
+	struct nodo * unNodo = unaLista->primero;
+	while(unNodo){
+		printf("[%d] -> ", unNodo->dato);
+		unNodo= unNodo->prox;
+	}
+	printf("-|\n");
+	bgra_t (*src_matrix)[(src_row_size+3)/4] = (bgra_t (*)[(src_row_size+3)/4]) src;
+	void **iterador = m->data;
 	void (*ptr_fun)(void* , void*);
 	//void matrixPrint(matrix_t* m, FILE *pFile);
 	uint32_t columnas = m->m;
@@ -30,6 +26,7 @@ void matrixPrint(matrix_t* m, FILE *pFile) {
 			if (iterador != NULL)
 			{	
 				fprintf(pFile, "%c", '|');
+				
 				//ptr_fun = (*(iterador)+2);
 				//(*ptr_fun)(iterador, pFile);
 			}else{
@@ -40,4 +37,4 @@ void matrixPrint(matrix_t* m, FILE *pFile) {
 		fprintf(pFile, "\n%c", '|');
 	}
 }
-
+*/
