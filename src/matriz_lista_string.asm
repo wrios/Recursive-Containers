@@ -103,6 +103,8 @@ str_len:
 	
 	;(rdi puntero a char)
 	xor rax, rax ; rax en 0
+	cmp rdi, NULL
+	je finstr_len
 	jmp ifStreLen
 cicloStr_Len:
 	add rax, 1
@@ -110,7 +112,7 @@ cicloStr_Len:
 ifStreLen:
 	cmp byte [rdi], 0
 	jne cicloStr_Len
-
+finstr_len:
 	add rsp, 8
 	pop rdi
 	pop rbp
@@ -356,8 +358,8 @@ printFila:
 	mov rdx, [rdi+off_print]
 	call rdx
 	lea r12, [r12+matrix_data_size]
-	dec r14
-	cmp r14, 0
+	dec r14d
+	cmp r14d, 0
 	jne printFila
 	jmp loopMatrix
 printMatrixNull:
@@ -366,8 +368,8 @@ printMatrixNull:
 	mov rdx, fprintf_null
 	call fprintf
 	lea r12, [r12+matrix_data_size]
-	dec r14
-	cmp r14, 0
+	dec r14d
+	cmp r14d, 0
 	jne printFila
 loopMatrix:
 	dec r13d
@@ -377,7 +379,10 @@ loopMatrix:
 	mov rsi, fprintf_s
 	mov rdx, fprintf_pipe	
 	call fprintf
-
+	mov rdi, r15
+	mov rdx, fprintf_endl
+	call fprintf
+	
 	pop rdx
 	pop rcx
 	pop rsi
@@ -446,6 +451,7 @@ matrixRemove:
 	;(rdi puntero a matrix)
 	;(rsi columnas)
 	;(rdx filas)
+
 	mov eax, edx ; eax indice de fila 
 	mov ecx, [rdi+off_matrix_col] ; ecx cantidad de filas
 	mul ecx ; rax cantidad de elementos de las filas * indice de filas
@@ -460,7 +466,7 @@ matrixRemove:
 	mov rdi, [rdi] ; rdi puntero a data
 	mov r13, [rdi+off_remove] ; r13 tiene puntero a funcion remove
 	call r13
-	mov qword [r12], NULL
+	;mov qword [r12], NULL
 	;dato borrado
 finMatrixRemove:
 	pop rcx
@@ -768,7 +774,7 @@ removerNodo:
 	call rcx
 	mov rdi, r12
 	call free
-	mov qword [r12], NULL
+	;mov qword [r12], NULL
 	mov r12, r14
 	jmp ifHaySiguiente
 finListRemove:	
@@ -812,7 +818,7 @@ listRemoveFirst:
 	call r12
 	mov rdi, r14
 	call free
-	mov qword [r14], NULL
+	;mov qword [r14], NULL
 finlistRemFi:
 	
 	pop rdx
@@ -877,8 +883,9 @@ listDelete:
 	push r12
 	push r13
 	push rdx
-	
+	mov r13, rdi
 	;(rdi puntero a estructura)
+listDeleteFirst:	
 	mov rbx, rdi
 	cmp qword [rdi+off_list_first], NULL
 	;si es lista vacia, termino
@@ -887,10 +894,13 @@ listDelete:
 	;nodo borrado
 	cmp qword [rdi+off_list_first], NULL
 	je finListDelete
-	call listDelete
+	jmp listDeleteFirst
 finListDelete:
-	call free	
-
+	mov rdi, r13
+	cmp qword [rdi], NULL
+	je finlistDel
+	call free
+finlistDel:
 	pop rdx
 	pop r13
 	pop r12
@@ -1001,7 +1011,7 @@ strSet:
 	call strRemove ; estructura no tiene data
 	mov rdi, rsi
 	call str_copy ; puntero de copia de C en rax, rdi puntero a char c
-	mov qword [r12+off_string_data], rax ; registro a memoria 
+	mov [r12+off_string_data], rax ; registro a memoria 
 	mov rax, r12 ; rax puntero a estructura
 
 	add rsp, 8
@@ -1024,18 +1034,23 @@ strAddRight:
 	;(rdi puntero a struct s)
 	;(rsi puntero a struct d)
 ;concat
+
+
 	mov r12, rdi
 	mov r13, rsi
-	mov rdi, [r12+off_string_data]
-	mov rsi, [r13+off_string_data]
+	lea rdi, [r12+off_string_data]
+	lea rsi, [r13+off_string_data]
 	call str_concat ; puntero a concat
-	mov [r12+off_string_data], rax; puntero a concat
+	mov rdi, [r13+off_string_data]
+	mov [r13+off_string_data], rax; puntero a concat
 	call free
 	cmp r12, r13
 	je finStrRight
 ;delete d
 	mov rdi, r13 ; rdi apunta a d
 	call strDelete
+	;lea rdi, [r12+off_string_data]
+	;call free
 finStrRight:
 	mov rax, r12
 
@@ -1060,8 +1075,8 @@ strAddLeft:
 ;concat
 	mov r12, rdi
 	mov r13, rsi
-	mov rdi, [r13+off_string_data]
-	mov rsi, [r12+off_string_data]
+	lea rdi, [r13+off_string_data]
+	lea rsi, [r12+off_string_data]
 	call str_concat ; puntero a concat
 	mov rdi, [r12+off_string_data] ; puntero a liberar
 	mov [r12+off_string_data], rax; puntero a concat
@@ -1130,8 +1145,8 @@ strCmp:
 	mov rbp, rsp
 	push rdi
 	push rsi
-	mov rdi, [rdi+off_string_data]
-	mov rsi, [rsi+off_string_data]
+	lea rdi, [rdi+off_string_data]
+	lea rsi, [rsi+off_string_data]
 	call str_cmp
 
 	pop rsi
@@ -1149,7 +1164,7 @@ strPrint:
 	sub rsp,8
 	;(integer_t * en rdi) 
 	;(FILE* en rsi)
-	mov rdx,[rdi+off_int_data] ; rdx puntero a data
+	lea rdx,[rdi+off_int_data] ; rdx puntero a data
 ;preparandoFPRINTF
 	mov rdi, rsi
 	mov rsi, fprintf_s
@@ -1282,11 +1297,11 @@ intCmp:
 	push rdi
 	push rsi
 
-	mov rdi, [rdi+off_int_data]
-	mov rsi, [rsi+off_int_data]
-	mov di, [rdi]
-	mov si, [rsi]
-	cmp di, si
+	lea rdi, [rdi+off_int_data]
+	lea rsi, [rsi+off_int_data]
+	mov edi, [rdi]
+	mov esi, [rsi]
+	cmp edi, esi
 	jg aMayor
 	jl bMayor
 	xor rax, rax ;son iguales
