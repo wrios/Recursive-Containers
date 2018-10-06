@@ -105,13 +105,12 @@ str_len:
 	xor rax, rax ; rax en 0
 	cmp rdi, NULL
 	je finstr_len
-	jmp ifStreLen
 cicloStr_Len:
-	add rax, 1
-	add rdi, 1
-ifStreLen:
 	cmp byte [rdi], 0
-	jne cicloStr_Len
+	je finstr_len
+	add eax, 1
+	add rdi, 1
+	jmp cicloStr_Len
 finstr_len:
 	add rsp, 8
 	pop rdi
@@ -132,8 +131,8 @@ str_copy:
 	call str_len
 	mov  ecx, eax ; rcx tamaño del string
 	mov r12, rdi ; puntero a char* a
-	add rax, 1
-	mov rdi, rax ; rdi tamaño de char*
+	add eax, 1
+	mov edi, eax ; rdi tamaño de char*
 	call malloc ; rax puntero a nueva memoria
 	mov r13,rax ; r13 putero a nuevo char*
 cicloStr_Copy:
@@ -144,7 +143,9 @@ cicloStr_Copy:
 	cmp byte [r12], 0
 	jne cicloStr_Copy
 	;loop cicloStr_Copy
+	mov byte [rax], 0
 	mov rax, r13
+
 
 	pop rbx
 	pop rsi
@@ -286,7 +287,7 @@ matrixNew:
 	mov rbx, rax	        ; rbx tiene puntero a estructura
 ;guardando estructura
 ;rax puntero a matrix
-	mov qword [rax+off_matrix_data_type], 4
+	mov dword [rax+off_matrix_data_type], 4
 	mov qword [rax+off_matrix_remove], matrixDelete
 	mov qword [rax+off_matrix_print], matrixPrint
 	mov [rax+off_matrix_col], r15d ; cantidad de columnas, parte alta limpia
@@ -379,8 +380,9 @@ loopMatrix:
 	mov rsi, fprintf_s
 	mov rdx, fprintf_pipe	
 	call fprintf
-	mov rdi, r15
-	mov rdx, fprintf_endl
+	mov rdi, r15 ; r15 puntero a file
+	mov rsi, fprintf_s ; tipo de print (%s)
+	mov rdx, fprintf_endl ; char* a pintear
 	call fprintf
 	
 	pop rdx
@@ -541,7 +543,7 @@ listNew:
 	call malloc				; llamamos a malloc que devuelve en rax
 				            ; el puntero a la memoria solicitada
 ;guardando
-	mov qword [rax+off_list_data_type], 3
+	mov dword [rax+off_list_data_type], 3
 	mov qword [rax+off_list_remove], listDelete
 	mov qword [rax+off_list_print], listPrint
 	mov qword [rax+off_list_first], NULL
@@ -897,7 +899,7 @@ listDeleteFirst:
 	jmp listDeleteFirst
 finListDelete:
 	mov rdi, r13
-	cmp qword [rdi], NULL
+	cmp qword rdi, NULL
 	je finlistDel
 	call free
 finlistDel:
@@ -986,7 +988,7 @@ strNew:
 	call malloc				; llamamos a malloc que devuelve en rax
 				            ; el puntero a la memoria solicitada			            
 ;guardando
-	mov qword [rax+off_string_data_type], 2
+	mov dword [rax+off_string_data_type], 2
 	mov qword [rax+off_string_remove], strDelete
 	mov qword [rax+off_string_print], strPrint
 	mov qword [rax+off_string_data], NULL
@@ -1003,18 +1005,19 @@ strSet:
 	push r12
 	push rdi
 	push rsi
-	sub rsp, 8
+	push r13
 
 	;rdi(puntero a la estructura s)
 	;rsi(puntero a la estructura c)
+	mov r13, rsi
 	mov r12, rdi ; r12 puntero a estructura
 	call strRemove ; estructura no tiene data
-	mov rdi, rsi
+	mov rdi, r13
 	call str_copy ; puntero de copia de C en rax, rdi puntero a char c
 	mov [r12+off_string_data], rax ; registro a memoria 
 	mov rax, r12 ; rax puntero a estructura
 
-	add rsp, 8
+	pop r13
 	pop rdi
 	pop rsi
 	pop r12
@@ -1035,22 +1038,19 @@ strAddRight:
 	;(rsi puntero a struct d)
 ;concat
 
-
 	mov r12, rdi
 	mov r13, rsi
-	lea rdi, [r12+off_string_data]
-	lea rsi, [r13+off_string_data]
+	mov rdi, [r12+off_string_data]
+	mov rsi, [r13+off_string_data]
 	call str_concat ; puntero a concat
-	mov rdi, [r13+off_string_data]
-	mov [r13+off_string_data], rax; puntero a concat
+	;mov rdi, [r13+off_string_data]
+	mov [r12+off_string_data], rax; puntero a concat
 	call free
 	cmp r12, r13
 	je finStrRight
 ;delete d
 	mov rdi, r13 ; rdi apunta a d
 	call strDelete
-	;lea rdi, [r12+off_string_data]
-	;call free
 finStrRight:
 	mov rax, r12
 
@@ -1075,8 +1075,10 @@ strAddLeft:
 ;concat
 	mov r12, rdi
 	mov r13, rsi
-	lea rdi, [r13+off_string_data]
-	lea rsi, [r12+off_string_data]
+	mov rdi, [r13+off_string_data]
+	mov rsi, [r12+off_string_data]
+	;mov rdi, [rdi]
+	;mov rsi, [rsi]
 	call str_concat ; puntero a concat
 	mov rdi, [r12+off_string_data] ; puntero a liberar
 	mov [r12+off_string_data], rax; puntero a concat
@@ -1145,8 +1147,8 @@ strCmp:
 	mov rbp, rsp
 	push rdi
 	push rsi
-	lea rdi, [rdi+off_string_data]
-	lea rsi, [rsi+off_string_data]
+	mov rdi, [rdi+off_string_data]
+	mov rsi, [rsi+off_string_data]
 	call str_cmp
 
 	pop rsi
@@ -1158,31 +1160,32 @@ strCmp:
 strPrint:
 	push rbp
 	mov rbp, rsp
-	push rdx
+	push r12
 	push rdi
 	push rsi
-	sub rsp,8
+	push rdx
 	;(integer_t * en rdi) 
 	;(FILE* en rsi)
-	lea rdx,[rdi+off_int_data] ; rdx puntero a data
+	mov r12,[rdi+off_string_data] ; r12 puntero a data
 ;preparandoFPRINTF
 	mov rdi, rsi
-	mov rsi, fprintf_s
 ;ifNull
-	cmp rdx, NULL
+	cmp r12, NULL
 	je printStrNULL
-printValor:
-	mov rsi, rdx
+;printValor:
+	mov rsi, fprintf_s
+	mov rdx, r12
 	jmp finPrintStr
 printStrNULL:
+	mov rsi, fprintf_s
 	mov rdx, fprintf_null
 finPrintStr:
 	call fprintf
 
-	add rsp, 8
+	pop rdx
 	pop rsi
 	pop rdi
-	pop rdx
+	pop r12
 	pop rbp
 	ret
 	
@@ -1200,7 +1203,7 @@ intNew:
 	call malloc				; llamamos a malloc que devuelve en rax
 				            ; el puntero a la memoria solicitada
 ;guardando
-	mov qword [rax+off_int_data_type], 1
+	mov dword [rax+off_int_data_type], 1
 	mov qword [rax+off_int_remove], intDelete
 	mov qword [rax+off_int_print], intPrint
 	mov qword [rax+off_int_data], NULL	
@@ -1297,8 +1300,8 @@ intCmp:
 	push rdi
 	push rsi
 
-	lea rdi, [rdi+off_int_data]
-	lea rsi, [rsi+off_int_data]
+	mov rdi, [rdi+off_int_data]
+	mov rsi, [rsi+off_int_data]
 	mov edi, [rdi]
 	mov esi, [rsi]
 	cmp edi, esi
