@@ -128,6 +128,9 @@ str_copy:
 	push rsi
 	push rbx
 
+	xor rax, rax ; rax en 0
+	cmp rdi, NULL
+	je finstr_copy
 	call str_len
 	mov  ecx, eax ; rcx tamaño del string
 	mov r12, rdi ; puntero a char* a
@@ -145,7 +148,7 @@ cicloStr_Copy:
 	;loop cicloStr_Copy
 	mov byte [rax], 0
 	mov rax, r13
-
+finstr_copy:
 
 	pop rbx
 	pop rsi
@@ -712,7 +715,6 @@ finListAdd:
 listRemove:
 	push rbp
 	mov rbp, rsp
-	push rdi
 	push rsi
 	push rdx
 	push rcx
@@ -721,6 +723,7 @@ listRemove:
 	push r14
 	push r15
 	push rbx
+	push rdi
 	sub rsp, 8
 
 	;(rdi puntero a l)
@@ -729,6 +732,7 @@ listRemove:
 	mov rbx, rdx
 	xor rax, rax
 	mov r15, rdi
+	mov r13, rsi
 	mov r12, [rdi+off_list_first]
 	cmp r12, NULL
 	;si es vacio, termine
@@ -770,6 +774,7 @@ removerNodo:
 ;r12 nodo a borrar y es distinto de null(siempre borro el siguiente)
 	mov r13, [r12+off_nodo_next] ; r13 puntero a siguiente o NULL
 	mov [r14+off_nodo_next], r13 ; r14 apunta a siguiente
+	mov r13, rsi
 	;acomodando registros para llamar a dataRemove(*data)
 	mov rdi, [r12+off_nodo_data]
 	mov rcx, [rdi+off_remove]
@@ -777,11 +782,15 @@ removerNodo:
 	mov rdi, r12
 	call free
 	;mov qword [r12], NULL
+	mov rsi, r13
 	mov r12, r14
+	mov rdx, rbx
 	jmp ifHaySiguiente
 finListRemove:	
 	
 	add rsp, 8
+	pop rdi
+	mov rax, rdi
 	pop rbx
 	pop r15
 	pop r14
@@ -790,8 +799,6 @@ finListRemove:
 	pop rcx
 	pop rdx
 	pop rsi
-	pop rdi
-	mov rax, rdi
 	pop rbp	
 	ret
 	
