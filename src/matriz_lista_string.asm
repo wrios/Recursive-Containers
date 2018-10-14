@@ -182,16 +182,16 @@ ifNullStrCmp:
 	jne cicloStrCmp
 	cmp byte [rsi], 0
 	jne distintos
-	mov rax, 0
+	mov eax, 0
 	jmp finStrCmp
 distintos:
 	mov bl, [rdi]
 	cmp [rsi], bl
 	jg StrbMayor
-	mov rax, -1
+	mov eax, -1
 	jmp finStrCmp
 StrbMayor:
-	mov rax, 1
+	mov eax, 1
 finStrCmp:
 	
 	add rsp, 8
@@ -218,10 +218,10 @@ str_concat:
 	mov r13, rsi
 	xor rcx, rcx
 	call str_len
-	mov r15, rax ; r15 size char* a
+	mov r15d, eax ; r15 size char* a
 	mov rdi, rsi
 	call str_len
-	mov r14, rax ; r14 size char* b
+	mov r14d, eax ; r14 size char* b
 	mov rdi, r14
 	add rdi, r15
 	add rdi, 1
@@ -357,8 +357,10 @@ printFila:
 	call fprintf
 	cmp qword [r12], NULL
 	je printMatrixNull
-	mov rdi, [r12]
-	mov rsi, r15
+	;Sprint(S*, * FILE)
+	;segfault con lista []
+	mov rdi, [r12] ;puntero a estructura
+	mov rsi, r15 ; puntero a file
 	mov rdx, [rdi+off_print]
 	call rdx
 	lea r12, [r12+matrix_data_size]
@@ -565,7 +567,7 @@ listAddFirst:
 	push r13
 	push r14
 	push rdi
-	sub rsp, 8
+	push rdx
 
 	;(rdi puntero a l)
 	;(rsi puntero a data)
@@ -573,12 +575,12 @@ listAddFirst:
 	mov r14, rsi
 	mov rdi, size_nodo
 	call malloc
-	mov r12, [r13+off_list_first]
 	mov [rax+off_nodo_data], r14 ; 
+	mov r12, [r13+off_list_first] ; 
 	mov [rax+off_nodo_next], r12 ; siguiente de data es el primero actual
 	mov [r13+off_list_first], rax ; el primero es data
 
-	add rsp, 8
+	pop rdx
 	pop rdi
 	mov rax, rdi
 	pop r14
@@ -596,6 +598,8 @@ listAddLast:
 	push r13
 	push rdi
 	push rsi
+	push rdx
+	sub rsp, 8
 	;(rdi puntero a l)
 	;(rsi puntero a data)
 ;ifNULL
@@ -619,6 +623,8 @@ ifTieneSiguiente:
 agregarPrimeroLast:
 	call listAddFirst	
 finAddLast:
+	add rsp, 8
+	pop rdx
 	pop rsi
 	pop rdi
 	mov rax, rdi
@@ -637,11 +643,11 @@ listAdd:
 	push r15
 	push rsi
 	push rdi
-	
+	push rdx
+	sub rsp, 8
 	;(rdi puntero a estructura)
 	;(rsi puntero a data)
 	;(rdx puntero a funcion)
-	;rsi nunca se modifica(creo)
 	mov r12, rdi ; r12 puntero a estructura
 	mov r14, rdi ; r14 puntero a estructura
 	mov r15, rsi ; r15 puntero a data
@@ -658,8 +664,8 @@ listAdd:
 cicloListAdd:
 	;r12 siempre es valido en el ciclo
 	;tiene almenos dos elemento
-	mov rsi, r15
-	mov rdi, [r12+off_nodo_data]
+	mov rsi, r15 ; rsi puntero a data
+	mov rdi, [r12+off_nodo_data] 
 	call rdx
 	cmp rax, 1
 	;si no es menor, agregar(r12 es el anterior a la nueva data)
@@ -701,6 +707,8 @@ agregarSegundo:
 	je agregarAdelante
 	jmp agregarAtrasList
 finListAdd:
+	add rsp, 8
+	pop rdx
 	pop rdi
 	mov rax, rdi
 	pop rsi
@@ -729,7 +737,7 @@ listRemove:
 	;(rdi puntero a l)
 	;(rsi puntero a data)
 	;(rdx puntero a fun)
-	mov rbx, rdx
+	mov rbx, rdx ;rbx puntero a función
 	xor rax, rax
 	mov r15, rdi
 	mov r13, rsi
@@ -815,7 +823,7 @@ listRemoveFirst:
 	;(rdi puntero a l)
 
 	cmp qword [rdi+off_list_first], NULL
-	je finlistRemFi
+	je finlistRemFirst
 ;reencadenamiento
 	mov r12, [rdi+off_list_first]
 	mov r14, r12
@@ -824,11 +832,10 @@ listRemoveFirst:
 ;borrar nodo	
 	mov rdi,[r12+off_nodo_data]
 	mov r12, [rdi+off_remove]
-	call r12
-	mov rdi, r14
-	call free
-	;mov qword [r14], NULL
-finlistRemFi:
+	call r12 ; liberando data
+	mov rdi, r14 
+	call free ; liberando puntero a nodo
+finlistRemFirst:
 	
 	pop rdx
 	pop rdi
@@ -847,35 +854,30 @@ listRemoveLast:
 	push r12
 	push r13
 	push r14
-	push r15
-	mov r15, rdi ;puntero a la lista guardado
+	push rdi
 	;(rdi puntero a l)
-
 	mov r12, [rdi+off_list_first]
 	cmp r12, NULL
-	je finListRemLa
-cicloListRemLa:
-	mov r14, r13
+	je finLastRemove
+	cmp qword[r12+off_nodo_next], NULL
+	je eliminarPrimeroLastRemove
+cicloLastRemove:
 	mov r13, r12
 	mov r12, [r12+off_nodo_next]
-	cmp r12, NULL
-	jne cicloListRemLa
-	cmp [r14+off_nodo_next], r13
-	je sacarUltimo
-	call listRemoveFirst
-	jmp finListRemLa
-sacarUltimo:
-	mov qword [r14+off_nodo_next], NULL
-	mov r12,[r13+off_nodo_data]
-	mov r12, [r12+off_list_remove];(coinciden los remove de las estructuras, sino cambiar)
-	mov rdi, [r13+off_nodo_data]
-	call r12
-	mov rdi, r13
+	cmp qword[r12+off_nodo_next], NULL
+	jne cicloLastRemove
+	mov qword[r13+off_nodo_next], NULL
+	mov rdi, [r12+off_nodo_data]
+	mov r14, [rdi+off_remove]
+	call r14
+	mov rdi, r12
 	call free
-finListRemLa:
-	mov rdi, r15
-	mov rax, r15
-	pop r15
+	jmp finLastRemove
+eliminarPrimeroLastRemove:
+	call listRemoveFirst
+finLastRemove:
+	pop rdi
+	mov rax, rdi
 	pop r14
 	pop r13
 	pop r12
@@ -886,13 +888,12 @@ finListRemLa:
 listDelete:
 	push rbp
 	mov rbp,rsp
-	push rdi
 	push rsi
 	push rbx
 	push r12
 	push r13
 	push rdx
-	mov r13, rdi
+	sub rsp, 8
 	;(rdi puntero a estructura)
 listDeleteFirst:	
 	mov rbx, rdi
@@ -905,17 +906,14 @@ listDeleteFirst:
 	je finListDelete
 	jmp listDeleteFirst
 finListDelete:
-	mov rdi, r13
-	cmp qword rdi, NULL
-	je finlistDel
 	call free
 finlistDel:
+	add rsp, 8
 	pop rdx
 	pop r13
 	pop r12
 	pop rbx
 	pop rsi
-	pop rdi
 	pop rbp
 	ret
 	
@@ -1137,6 +1135,7 @@ finstrRemove:
 strDelete:
 	push rbp
 	mov rbp, rsp
+	push rdi
 	push rsi
 	push rdx
 
@@ -1145,6 +1144,7 @@ strDelete:
 	
 	pop rdx
 	pop rsi
+	pop rdi
 	pop rbp
 	ret
 	
