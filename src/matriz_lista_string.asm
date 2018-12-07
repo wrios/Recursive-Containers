@@ -36,7 +36,7 @@ section .data
 %define off_int_remove 8
 %define off_int_print 16
 %define off_int_data 24
-%define size_nodo 16
+%define list_size_nodo 16
 
 %define malloc_int 32
 %define malloc_str 32
@@ -222,9 +222,9 @@ str_concat:
 	mov rdi, rsi
 	call str_len
 	mov r14d, eax ; r14 size char* b
-	mov rdi, r14
-	add rdi, r15
-	add rdi, 1
+	mov edi, r14d
+	add edi, r15d
+	add edi, 1
 	call malloc
 	jmp primerIFConcat
 primerCicloConcat:
@@ -573,7 +573,7 @@ listAddFirst:
 	;(rsi puntero a data)
 	mov r13, rdi
 	mov r14, rsi
-	mov rdi, size_nodo
+	mov rdi, list_size_nodo
 	call malloc
 	mov [rax+off_nodo_data], r14 ; 
 	mov r12, [r13+off_list_first] ; 
@@ -613,8 +613,7 @@ avanzarLast:
 ifTieneSiguiente:
 	cmp qword [r12+off_nodo_next], NULL
 	jne avanzarLast
-
-	mov rdi, size_nodo
+	mov edi, list_size_nodo
 	call malloc
 	mov qword [rax+off_nodo_next], NULL
 	mov [rax+off_nodo_data], r13
@@ -641,77 +640,55 @@ listAdd:
 	push r13
 	push r14
 	push r15
-	push rsi
+	push rbx
 	push rdi
-	push rdx
-	sub rsp, 8
 	;(rdi puntero a estructura)
 	;(rsi puntero a data)
 	;(rdx puntero a funcion)
-	mov r12, rdi ; r12 puntero a estructura
+	mov rbx, rdx ; rbx puntero a función
+	mov r12, [rdi + off_list_first] ; r12 puntero al primer nodo
+	mov r13, rsi ; r13 puntero a data
 	mov r14, rdi ; r14 puntero a estructura
-	mov r15, rsi ; r15 puntero a data
-	cmp qword [r12+off_list_first], NULL ; si es lista vacia-> agregarAdelante
-	je agregarAdelante
+	cmp r12, NULL ; si es lista vacia-> agregarAdelante
+	je agregarAdelanteListAdd
 	;hay al menos un nodo
-	mov r12, [r12+off_list_first]
 	mov rdi, [r12+off_nodo_data]
-	call rdx
-	cmp eax, 1
-	jne agregarAdelante
-	cmp qword [r12+off_nodo_next], NULL
-	je agregarAtrasList
+	call rbx;if (b < a , agrego b adelante de a)
+	cmp eax, -1 ;si el primer nodo es mayor, agregar adelante
+	je agregarAdelanteListAdd
 cicloListAdd:
-	;r12 siempre es valido en el ciclo
-	;tiene almenos dos elemento
-	mov rsi, r15 ; rsi puntero a data
-	mov rdi, [r12+off_nodo_data] 
-	call rdx
-	cmp rax, 1
-	;si no es menor, agregar(r12 es el anterior a la nueva data)
-	jne agregarList
-	mov r13, r12
-	;r13 es el anterior a la nueva data 
-	mov r12, [r12+off_nodo_next]
 	cmp r12, NULL
-	;si hay siguiente elemento, vuelvo al ciclo
-	jne cicloListAdd
-agregarAtrasList:	
-	;r12 es NULL
-	;r13 tiene puntero al ultimo nodo
-	;r14 tiene puntero a estructura
-	mov rsi, r15
-	mov rdi, r14 
-	call listAddLast
-	jmp finListAdd
-agregarList:
-;agregar data como siguiente de r13 ; deprecated
-	mov rdi, 16
-	call malloc ; rax tiene puntero a la nueva memoria
-	mov [rax+off_nodo_data], r15
-	mov r15, [r13+off_nodo_next]
-	mov [rax+off_nodo_next], r15
-	mov [r13+off_nodo_next], rax ; el primero es data
-	jmp finListAdd
-agregarAdelante:
+	je agregarAtrasListAdd
+	mov rdi, [r12+ off_nodo_data]
+	mov rsi, r13
+	call rbx
+	cmp eax, -1
+	je agregarListAdd
+	mov r15, r12
+	mov r12, [r12 + off_nodo_next]
+	jmp cicloListAdd
+agregarAdelanteListAdd:
 	mov rdi, r14
-	mov rsi, r15
+	mov rsi, r13
 	call listAddFirst
 	jmp finListAdd
-agregarSegundo:
-;hay un solo elemento
-	mov rsi, r15
-	mov rdi, [r12+off_nodo_data]
-	call rdx
-	cmp rax, 1
-	je agregarAdelante
-	jmp agregarAtrasList
+agregarAtrasListAdd:
+	mov rdi, r14
+	mov rsi, r13
+	call listAddLast
+	jmp finListAdd
+agregarListAdd:
+	;r15 -> r12, insert=> r15 -> rax -> r12
+	mov edi, 16
+	call malloc
+	mov [rax + off_nodo_data], r13 ; nodo->data = *data
+	mov r8, [r15+ off_nodo_next]
+	mov [rax+ off_nodo_next], r8
+	mov [r15+ off_nodo_next], rax
 finListAdd:
-	add rsp, 8
-	pop rdx
 	pop rdi
 	mov rax, rdi
-	pop rsi
+	pop rbx
 	pop r15
 	pop r14
 	pop r13
@@ -757,7 +734,7 @@ haySiguiente:
 	mov r12, [r12+off_nodo_next] ; r12 apunta al nodo a borrar
 	mov rdi, [r12+off_nodo_data] ; rdi apunta a la data a borrar
 	call rbx
-	cmp dword eax, 0
+	cmp eax, 0
 	;si es igual a la data que me pasaron, borro
 	je removerNodo
 	;si no es igual, pregunto si hay siguiente
@@ -770,7 +747,7 @@ MirarPrimero:
 	mov rdi, [r15+off_list_first]
 	mov rdi, [rdi+off_nodo_data]
 	call rbx
-	cmp dword eax, 0
+	cmp eax, 0
 	;si el primero es no igual, termine
 	jne finListRemove
 	;si es igual, borro y termino
@@ -1135,16 +1112,16 @@ finstrRemove:
 strDelete:
 	push rbp
 	mov rbp, rsp
-	push rdi
 	push rsi
 	push rdx
+	sub rsp, 8
 
 	call strRemove
 	call free
 	
+	add rsp, 8
 	pop rdx
 	pop rsi
-	pop rdi
 	pop rbp
 	ret
 	
